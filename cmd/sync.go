@@ -35,13 +35,7 @@ import (
 // syncCmd represents the sync command
 var syncCmd = &cobra.Command{
 	Use:   "sync",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "sync data to mongodb",
 	Run: func(cmd *cobra.Command, args []string) {
 		token := os.Getenv("NOTION_TOKEN")
 		client := notionapi.NewClient(notionapi.Token(token))
@@ -63,6 +57,10 @@ to quickly create a Cobra application.`,
 			fmt.Println(err)
 			return
 		}
+		if _, err := c.Database("blogs").Collection("blocks").DeleteMany(cmd.Context(), bson.D{}); err != nil {
+			fmt.Println(err)
+			return
+		}
 
 		var documents []interface{}
 		for _, page := range res.Results {
@@ -74,7 +72,20 @@ to quickly create a Cobra application.`,
 			return
 		}
 
-		fmt.Println("sync called")
+		fmt.Println("sync list success")
+
+		for _, page := range res.Results {
+			block, err := client.Block.GetChildren(cmd.Context(), notionapi.BlockID(page.ID), &notionapi.Pagination{PageSize: 100})
+			if err != nil {
+				fmt.Println(err)
+				break
+			}
+			if _, err := c.Database("blogs").Collection("block").InsertOne(cmd.Context(), block); err != nil {
+				fmt.Println(err)
+				break
+			}
+		}
+		fmt.Println("sync block success")
 	},
 }
 
